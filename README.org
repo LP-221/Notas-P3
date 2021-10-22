@@ -1,0 +1,14 @@
+* Lenguajes de Programación Grupo 7084
+Correos:
++ Profesor: L. en C.C. Fernando Abigail Galicia Mendoza | fernandogamen@ciencias.unam.mx
++ Ayudante: Alexis Rivas León | alex-rivasl@ciencias.unam.mx
++ Laboratorio: Emiliano Galeana Araujo | galeanaara@ciencias.unam.mx
+
+Curso:
++ Classroom
++ [[https://t.me/joinchat/L0xngv-r02EwYzFh][telegram]]
++ [[https://drive.google.com/drive/u/0/folders/136bZP00WtqWWFJAkZDo7mS-OsAx_B_7zWCc1iZVEvYp3vDKIpuMTPoECgpc_w9RvkkSYJrc8][drive]]
++ [[https://meet.google.com/vhh-hvip-aci?authuser=0&hs=179][Clases]]
++ LP20221-ASUNTO
+
+* N-clase (Práctica 3)
