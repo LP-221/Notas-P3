@@ -481,7 +481,7 @@ substitution :: MiniHs -> Subst -> MiniHs
 substitution (V n) (y, t)        = if n == y then t else (V n)
 substitution (Suc mh)    s       = Suc (substitution mh s)
 substitution (Ift b t e) s       = Ift (substitution b s) (substitution t s) (substitution e s)
-substitution f@(Fix n t e) s@(y,t') = case not (n `elem` [y] `union` fv t) of
+substitution f@(Fix n t e) s@(y,t') = case not (n `elem` [y] `union` fv t') of
   True  -> Fix n t (substitution e s)
   False -> let f' = alpha f in substitution f' s
 #+END_SRC
@@ -490,4 +490,400 @@ fix "x" T (V "x") ("x", 1)
 
 fv 1 = [] ++ ["x"] -> "x" `elem` ["x"] -> T -> F
 
-*** TODO ejemplos de sustitución en Fix
+*** DONE ejemplos de sustitución en Fix
+
+**** Donde se cumple la condición
+f = Fix "x" NAT (Prod (N 3) (V "x"))
+s = ("x", N 4)
+
+substitution f s
+
+=> not $ "x" elem ["x"] `union` fv (N 4)
+=> not $ "x" elem ["x"]
+=> not $ True
+=> False
+
+=> substitution (alpha f) s
+=> substitution (alpha (Fix "x" NAT (Prod (N 3) (V "x")))) s
+=> substitution (Fix "x0" NAT (Prod (N 3) (V "x0"))) s
+=> (Fix "x0" NAT (Prod (N 3) (V "x0")))
+
+**** Donde NO se cumple la condición
+f = Fix "x" NAT (Prod (N 3) (V "y"))
+s = ("y", N 4)
+
+substitution f s
+
+=> not $ "x" `elem` ["y"] `union` fv (N 4)
+=> not $ "x" `elem` ["y"]
+=> not $ False
+=> True
+
+Fix "x" NAT (substitution (Prod (N 3) (V "y")) s)
+Fix "x" NAT (Prod (N 3) (N 4))
+
+*** eval1
+
+Función que evalúa un programa tipado de =MiniHs=
+
+#+BEGIN_SRC haskell
+-- | The 'eval' function is an implementation of the evaluation for typed Mini Haskell
+-- programs.
+eval1 :: MiniHs -> MiniHs
+eval1 = error "D:"
+#+END_SRC
+
++ suma(3,4)              => 7
++ suma(3, (suc(3)))      => suma(3, evaluar(suc(3)))
++ suma(suc(2), suc(3))   => suma(evaluar(suc(2)), suc(3))
+
+- suma(suc(2), suc(3)) =>* N 7
+
+Si  los argumentos  son valores,  evaluamos. Si  solo el  izquierdo es
+valor,   evaluamos   el   derecho,   en  otro   caso,   evaluamos   el
+izquierdo. (Igual que en BAE).
+
+*** isValue
+
+Función que implementa el predicado  "Este programa tipado de =MiniHs=
+es un valor"
+
+#+BEGIN_SRC haskell
+-- | The 'isValue' is the predicate that determines if a typed Mini Haskell
+-- program is a value.
+isValue :: MiniHs -> Bool
+isValue = error "D":
+#+END_SRC
+
+¿Quiénes son valores?
+
+:ans:
++ Números
++ Booleanos
++ Lambdas
+:end:
+
+*** evals
+
+Función  que  implementa  la cerradura  reflexivo-transitiva  para  la
+relación de evaluación.
+
+#+BEGIN_SRC haskell
+{-| 
+The 'evals' function is the implementation of the relexive-transitive closure
+of the evaluation relation.
+-}
+evals' :: MiniHs -> MiniHs
+evals' = error "D:"
+#+END_SRC
+
+Si es valor, terminamos, y si no lo es, evaluamos otra vez.
+
+** Algoritmo W
+
+Algoritmo W:
+
+[[https://drive.google.com/file/d/1RCIzQ3WQaeGPDU3PfokFOAkcjQTb9AKx/view?usp=sharing][nota 7]]
+
+#+BEGIN_SRC haskell
+-- |The 'context' is represented as a set of different declarations of variables with their respective types
+type Ctx = [(Name, Type)]
+
+-- |A 'Judgment' is an Assertion (G, e, T) that represents that in the context G, e has type T
+data Judgment = Assertion (Ctx, MiniHs, Type)
+#+END_SRC
+
+*** DONE w
+
+=w= usa a =w_aux=.
+
+#+BEGIN_SRC haskell
+w :: MiniHsU -> Judgment
+w = error "D:"
+#+END_SRC
+
+Inicialmente, =w_aux= va  a recibir un programa de  =MiniHsU=, el cual
+ya  tenemos, y  necesitamos un  contexto,  ¿Qué contexto  sería en  la
+primer llamada?
+
+*** DOING w_aux
+
+#+BEGIN_SRC haskell
+w_aux :: Ctx -> MiniHsU -> Judgment
+w_aux = error "D:"
+#+END_SRC
+
+Regresamos un juicio (tripleta: contexto, programa tipado, tipo).
+
+Vamos a ver varios casos
+
+*hintazo: usar =newVType=*
+
+**** (VU x)
+
+1. ¿Cómo saco un nuevo tipo?
+ 
+  Usando =newVType=.
+
+2. ¿Qué contexto regresamos?
+
+   El que ya traemos cargando, unido al que estamos generando
+
+   1. ¿Cuál es ese contexto (el generado)?
+
+      Según las notas  (Y el algoritmo) Justo el tipo  que acabamos de
+      crear con el programa de =MiniHS=.
+
+3. ¿Qué tipo regresamos?
+
+   Algo de  tipo =T  t= ustedes tienes  que crear a  =T t=,  para este
+   punto ya debe estar en el contexto.
+
+     #+BEGIN_SRC haskell
+w_aux c (VU x) = Assertion ([(x,T t1)]`union`c, V x, T t1) where
+  t1 = newVType (typesG c)
+     #+END_SRC
+
+
+**** (ProdU e1 e2) 
+
+Un caso más interesante
+
+#+BEGIN_SRC haskell
+w_aux g (ProdU e1 e2) =
+  let
+    Assertion (g1,e1a,t1) = w_aux g e1
+    Assertion (g2,e2a,t2) = w_aux g1 e2
+    muAux = mu ([(s1,s2) | (x,s1) <- g1, (y,s2) <- g2, x == y] `union` [(t1,NAT),(t2,NAT)])
+    muApp = getMu muAux
+    g1g2 = appUmgCtx (g1`union`g2) muApp
+    e1ae2a = appUmgExp (Prod e1a e2a) muApp
+  in
+    Assertion (g1g2,e1ae2a,NAT)
+#+END_SRC
+
+Tomamos el  tipo de e1 =(Asertion  (g1, e1a...)=. Eso nos  da un nuevo
+contexto, usamos este para sacar el tipo de =e2=.
+
+Para  crear  el tipo  (La  parte  del  unificador más  general  (umg))
+tenemos:
+
+1. mu es la función de =umg=
+2. Necestiamos un conjunto que dados dos contextos nos saque el
+   más general. ¿Pueden ver qué contextos?
+
+   :respuesta:
+   =g1= y =g2=
+   :end:
+
+   Además según el algoritmo (Las notas) hay que unirle un nuevo tipo,
+   Un nuevo contexto. ¿Cuál es?
+
+   En este caso es algo [(t1, NAT), (t2,NAT)]
+3. Luego  hay que sacar al  umg de la  lista (Solo debería y  según yo
+   solo da uno HINT sobre cómo implementar =getMu=.
+
+   ¿Para qué necesitamos sacarlo? pues lo  vamos a usar para dos cosas
+   importantes.
+4. Luego necesitamos aplicar nuestro =umg=  a un contexto, eso lo hace
+   la función =appUmgCtx= ¿Qué contexto?
+
+   :respuesta: 
+   Pues  el resultado de  la unión  de los que  ya traemos (g1, g2)
+   :end:
+5. Lo siguiente en el algoritmo es la aplicación del =umg= sobre
+   algo de MiniHS. Para esto necesitamos la función =appUmgExp=
+        
+   ¿Qué programa de MiniHS recibe?
+   
+   :respuesta:
+   Pues  para este  caso algo  de  (Prod ...),  pero este  Prod es  de
+   MiniHS, entonces los argumentos también tienen que serlo.
+   :end:
+6. Al  final,  ya  solo  regresamos un  Assertion  con  todo  lo  que
+  calculamos
+   - La aplicación de =umg= sobre el contexto.
+
+   - La aplicación de =umg= sobre MiniHs.
+
+   - El tipo, es trivial ver el tipo, ¿No?
+
+La mayoría son parecidos, los de un argumento, pues se evitan la lista
+por comprensión y solo es regresar el tipo que tiene que ser.
+
+Intenten todos los  "normales" y la siguiente  clase revisamos =AppU=,
+     =LU= y =FixU=
+
+*** DONE newVType
+
+Saca una nueva variable que no esté en la lista.
+
+#+BEGIN_SRC haskell
+newVType :: [Name] -> Name
+newVType = error "D:"
+#+END_SRC
+
+Ya hemos  hecho algo parecido, mi  recomendación es que solo  usen una
+letra para los nombres, y que de ahí partan:
+
+#+BEGIN_SRC haskell
+newVType []     = "T"
+newVType (x:xs) = -- creas una variable, y verificas si está en la lista, sino, la agregas, si sí, repites
+#+END_SRC
+
+=`elem`=
+
+[T1, tnnnnn..., T2]
+=> T2
+[T2] ++ [T1, tnnnnn..., T2]
+
+*** DONE appUmgType
+
+Izi, solo revisen su código, literal hay un comentario que dice que lo
+hace de tal manera. 
+
+*HINTAZO: No hacen nada sobre ese archivo.*
+
+#+BEGIN_SRC haskell
+appUmgType :: Type -> Substitution -> Type
+appUmgType = error "D:"
+#+END_SRC
+
+*** DONE appUmgCtx
+
+Aplica el =umg= a un contexto.
+
+Tienen un =Ctx=, que es lo mismo  que una lista de =(Name, Type)= y ya
+sabemos aplicar  un =umg= a un  tipo, pues hay que  hacerlo para todos
+los =Type= de nuestro =Ctx=.
+
+O sea, aplicar la =Substitution= a los =Type= del =Ctx=, para más claro.
+
+En  su práctica  tienen más  o menos  la idea  de cómo  podría ser  el
+patrón, (La lista de /names/ y /tipes/) y la lista de sustituciones de
+/names/ y /types/.
+
+#+BEGIN_SRC haskell
+appUmgCtx :: Ctx -> Substitution -> Ctx
+appUmgCtx [(name, tipe):ctx] [(nameS, tipeS)] = 
+appUmgCtx = error "D:"
+#+END_SRC
+
+ctx = [(n0, t0),(n1, t1),...(nn, tn)] s
+
+t0 s => t'0
+
+*** DONE appUmgExp
+
+Es casi como le hemos hecho siempre (Sino es que igual (?))
+
+Aplica  un =umg=  a un  programa de  MiniHs.  ¿Cómo?   pues Los  casos
+interesantes son =L= y =Fix= (Programas de MiniHs), ¿Y qué hacemos?
+
+Bueno, pues si recordamos los constructores:
+
+#+BEGIN_SRC haskell
+| Prod e1 e2
+| L Name Type MiniHs
+| Fix Name Type MiniHs
+#+END_SRC
+
+Vemos que  estos traen un tipo  que nunca habíamos tocado,  pues sobre
+ese  tipo   ya  sabemos  aplicar  al   =umg=,  a  un  tipo   y  a  una
+expresión. Todo lo demás es propagar.
+
+*HINTAZO: propaguen todo lo que se pueda propagar.*
+
+#+BEGIN_SRC haskell
+appUmgExp :: MiniHs -> Substitution -> MiniHs
+appUmgExp (V v)
+#+END_SRC
+
+*** DONE getMu
+
+Saca algo de =[Substitution]=. Solo es posible regresar un umg si solo
+existe uno y solo uno.
+
+#+BEGIN_SRC haskell
+getMu :: [Substitution] -> Substitution
+getMu [x] = x
+getMu _ = error "No es posible"
+#+END_SRC
+
+*** DONE typesE
+
+Igual es casi como siempre, regresa las variables de tipo que aparecen
+en un programa de =MiniHS=
+
+#+BEGIN_SRC haskell
+typesE :: MiniHs -> [Name]
+typesE = error "D:"
+#+END_SRC
+
+*HINTAZO:  piensen  en  quiénes  son los  únicos  que  pueden  generar
+variables*
+
+*** DONE hasDecl
+
+Usa a la mónada =Maybe= (....)
+
+Toma  una expresión  de una  variale y  un contexto,  y si  existe una
+declaración de la  variable en el contexto, regresamos  el tipo, sino,
+regresamos lo que podemos regresar con =Maybe=
+
+#+BEGIN_SRC haskell
+-- | The 'hasDecl' function takes a variable expression x and a context G
+-- and in the case that G has a declaration of x, returns the type t of x 
+-- encapsulated in the Just constructor (Just t).
+-- If the declaration does not exists, the function returns Nothing.
+hasDecl :: Name -> Ctx -> Maybe Type
+hasDecl x []     = Nothing
+hasDecl x (g:gs) = if x == fst g
+                   then Just (snd g)
+                   else hasDecl x gs
+#+END_SRC
+
+[(n1, t1),...]
+
+#+BEGIN_SRC haskell
+hasDecl' :: Name -> Ctx -> Maybe Type
+hasDecl' x g = case [dec | dec@(x',t) <- g, x == x'] of
+  []       -> Nothing
+  (_, t):_ -> Just t
+#+END_SRC
+
+*** DONE typesG
+
+Regresa todas las variables de tipo que existan en un contexto.
+
+Es colo cazar patrones.
+
+#+BEGIN_SRC haskell
+typesG :: Ctx -> [Name]
+typesG [(name, tipe):ctx] = 
+typesG = error "D:"
+#+END_SRC
+
+*** DONE types
+
+Regresa todas las variables de tipo que existan en un contexto.
+
+Es colo cazar patrones.
+
+#+BEGIN_SRC haskell
+types :: Type -> [Name]
+types = error "D:"
+#+END_SRC
+
+*** DONE evals
+
+Computa un juicio de un programa  de =MiniHsU= y regresa su evaluación
+en =MiniHS= usando el algoritmo =w=.
+
+#+BEGIN_SRC haskell
+-- |  The 'evals'  function compute  the  judgment of  a untyped  Mini
+-- Haskell program and returns the evaluation of the typed version.
+evals :: MiniHsU -> MiniHs
+evals mhsu = evals' $ appUmgExp mhst ctx
+  where Assertion (ctx, mhst, _) = w mhsu
+#+END_SRC
